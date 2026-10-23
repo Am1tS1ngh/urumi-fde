@@ -8,13 +8,13 @@ New-Item -ItemType Directory -Force -Path $toolsDir, $downloadDir | Out-Null
 $k3dVersion = 'v5.9.0'
 $k3dBase = "https://github.com/k3d-io/k3d/releases/download/$k3dVersion"
 $k3dFile = Join-Path $toolsDir 'k3d.exe'
-$checksums = (Invoke-WebRequest "$k3dBase/checksums.txt").Content
+$checksums = (Invoke-WebRequest -UseBasicParsing "$k3dBase/checksums.txt").Content
 if ($checksums -is [byte[]]) { $checksums = [System.Text.Encoding]::UTF8.GetString($checksums) }
 $checksumLine = ($checksums -split "`n" | Where-Object { $_ -match '\s+(?:_dist/)?k3d-windows-amd64\.exe\s*$' })
 if (-not $checksumLine) { throw 'Could not find the official k3d Windows checksum.' }
 $expectedK3d = ($checksumLine.Trim() -split '\s+')[0]
 if (-not (Test-Path -LiteralPath $k3dFile)) {
-    Invoke-WebRequest "$k3dBase/k3d-windows-amd64.exe" -OutFile $k3dFile
+    Invoke-WebRequest -UseBasicParsing "$k3dBase/k3d-windows-amd64.exe" -OutFile $k3dFile
 }
 if ((Get-FileHash -LiteralPath $k3dFile -Algorithm SHA256).Hash -ne $expectedK3d) {
     throw 'k3d checksum mismatch. Do not execute this file.'
@@ -23,11 +23,11 @@ if ((Get-FileHash -LiteralPath $k3dFile -Algorithm SHA256).Hash -ne $expectedK3d
 $helmVersion = 'v4.3.1'
 $helmArchive = Join-Path $downloadDir "helm-$helmVersion-windows-amd64.zip"
 $helmUrl = "https://get.helm.sh/helm-$helmVersion-windows-amd64.zip"
-$helmChecksums = (Invoke-WebRequest "$helmUrl.sha256sum").Content
+$helmChecksums = (Invoke-WebRequest -UseBasicParsing "$helmUrl.sha256sum").Content
 if ($helmChecksums -is [byte[]]) { $helmChecksums = [System.Text.Encoding]::UTF8.GetString($helmChecksums) }
 $expectedHelm = ($helmChecksums.Trim() -split '\s+')[0]
 if (-not (Test-Path -LiteralPath $helmArchive)) {
-    Invoke-WebRequest $helmUrl -OutFile $helmArchive
+    Invoke-WebRequest -UseBasicParsing $helmUrl -OutFile $helmArchive
 }
 if ((Get-FileHash -LiteralPath $helmArchive -Algorithm SHA256).Hash -ne $expectedHelm) {
     throw 'Helm checksum mismatch. Do not extract or execute this archive.'
