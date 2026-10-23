@@ -4,6 +4,6 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev
 COPY app.mjs server.mjs ./
-USER node
+USER 1000
 EXPOSE 3002
 CMD ["node", "server.mjs"]

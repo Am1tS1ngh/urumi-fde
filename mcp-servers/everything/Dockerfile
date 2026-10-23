@@ -3,6 +3,6 @@ ENV NODE_ENV=production PORT=3001
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev
-USER node
+USER 1000
 EXPOSE 3001
 CMD ["node", "node_modules/@modelcontextprotocol/server-everything/dist/index.js", "streamableHttp"]
