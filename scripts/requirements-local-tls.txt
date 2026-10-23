@@ -1,0 +1,2 @@
+# Development certificate generation only; not an application runtime dependency.
+cryptography==50.0.2

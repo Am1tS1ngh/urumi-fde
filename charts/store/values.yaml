@@ -1,0 +1,26 @@
+# Credentials are provisioned separately, never embedded in Helm values.
+existingSecret: ""
+mysql:
+  image: mysql:8.4.11
+  database: wordpress
+  user: wordpress
+  bufferPoolSize: 128M
+  maxConnections: 50
+  resources:
+    requests: { cpu: 100m, memory: 256Mi }
+    limits: { cpu: "1", memory: 1Gi }
+wordpress:
+  image: wordpress:7.1.3-php8.3-apache
+  resources:
+    requests: { cpu: 100m, memory: 128Mi }
+    limits: { cpu: "1", memory: 512Mi }
+persistence:
+  # Empty: use the cluster default. Set a provisioned class for your VPS.
+  storageClass: ""
+  mysqlSize: 10Gi
+  wordpressSize: 5Gi
+ingress:
+  className: traefik
+  host: ""
+  extraHosts: []
+  tls: []

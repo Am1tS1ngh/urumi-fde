@@ -1,0 +1,12 @@
+# Example only. Supply your real DNS name, storage class, and TLS Secret.
+# This uses the same templates as local; it has not been deployed to a VPS.
+existingSecret: store-database
+persistence:
+  storageClass: local-path
+  mysqlSize: 20Gi
+  wordpressSize: 5Gi
+ingress:
+  host: store.example.com
+  tls:
+    - secretName: store-tls
+      hosts: [store.example.com]

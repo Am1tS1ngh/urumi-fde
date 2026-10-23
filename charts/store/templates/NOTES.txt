@@ -1,0 +1,8 @@
+WordPress and MySQL infrastructure installed.
+Ingress host: {{ .Values.ingress.host }}
+On the local k3d cluster, open http://{{ .Values.ingress.host }}:8080
+
+This chart provisions infrastructure; WordPress/WooCommerce setup is a separate step.
+An existing initialized store is preserved in its PVCs.
+Read docs/store-foundation.md and docs/live-store-mcp.md for validation commands.
+PVCs have Helm's keep annotation. Uninstalling is not a database reset or a backup.

@@ -1,0 +1,17 @@
+existingSecret: store-database
+mysql:
+  bufferPoolSize: 64M
+  maxConnections: 30
+  resources:
+    limits: { cpu: "1", memory: 512Mi }
+persistence:
+  storageClass: local-path
+  mysqlSize: 2Gi
+  wordpressSize: 1Gi
+ingress:
+  host: store.localhost
+  # Node on Windows does not necessarily resolve *.localhost.
+  extraHosts: [localhost]
+  tls:
+    - secretName: store-local-tls
+      hosts: [store.localhost, localhost]

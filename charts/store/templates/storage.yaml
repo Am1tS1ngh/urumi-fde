@@ -1,0 +1,21 @@
+{{- range $component, $size := dict "mysql" .Values.persistence.mysqlSize "wordpress" .Values.persistence.wordpressSize }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "store.name" $ }}-{{ $component }}
+  labels:
+    {{- include "store.labels" $ | nindent 4 }}
+    app.kubernetes.io/component: {{ $component }}
+  annotations:
+    # Helm uninstall should not silently destroy the store's data.
+    helm.sh/resource-policy: keep
+spec:
+  accessModes: [ReadWriteOnce]
+  {{- if $.Values.persistence.storageClass }}
+  storageClassName: {{ $.Values.persistence.storageClass | quote }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ $size | quote }}
+{{- end }}

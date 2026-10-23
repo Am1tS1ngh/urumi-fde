@@ -1,0 +1,40 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "store.name" . }}-health
+  labels:
+    {{- include "store.labels" . | nindent 4 }}
+data:
+  safe-access-log.conf: |
+    # Basic-auth usernames are WooCommerce consumer keys. Do not log them.
+    # Also omit queries, referers and user agents from this local store log.
+    LogFormat "%a - - %t \"%m %U %H\" %>s %b" combined
+    LogFormat "%a - - %t \"%m %U %H\" %>s %b" common
+  live.php: |
+    <?php
+    // Apache and PHP are alive. A database outage must not cause a restart loop.
+    header('Content-Type: application/json');
+    echo '{"status":"alive"}';
+  ready.php: |
+    <?php
+    // Check the configured application user's real database connection.
+    header('Content-Type: application/json');
+    mysqli_report(MYSQLI_REPORT_OFF);
+    $db = mysqli_init();
+    $db->options(MYSQLI_OPT_CONNECT_TIMEOUT, 3);
+    try {
+      $connected = @$db->real_connect(
+        getenv('WORDPRESS_DB_HOST'), getenv('WORDPRESS_DB_USER'),
+        getenv('WORDPRESS_DB_PASSWORD'), getenv('WORDPRESS_DB_NAME')
+      );
+      if (!$connected || !$db->query('SELECT 1')) {
+        http_response_code(503);
+        echo '{"status":"not_ready"}';
+        exit;
+      }
+      $db->close();
+      echo '{"status":"ready"}';
+    } catch (Throwable $error) {
+      http_response_code(503);
+      echo '{"status":"not_ready"}';
+    }
