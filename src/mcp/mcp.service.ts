@@ -1,8 +1,8 @@
 import { Injectable, type OnModuleDestroy } from '@nestjs/common';
 import { timingSafeEqual } from 'node:crypto';
 import type { IncomingMessage, ServerResponse } from 'node:http';
-import { createMcpHandler, McpServer } from '@modelcontextprotocol/server';
-import { localhostHostValidation, localhostOriginValidation, toNodeHandler } from '@modelcontextprotocol/node';
+import { createMcpHandler, localhostAllowedHostnames, McpServer } from '@modelcontextprotocol/server';
+import { hostHeaderValidation, localhostOriginValidation, toNodeHandler } from '@modelcontextprotocol/node';
 import { StoreError, WooCommerceClient } from '../woocommerce.js';
 import { listProductsInput, createProductInput, listOrdersInput, getOrderInput, updateOrderStatusInput } from '../tools/schemas.js';
 
@@ -11,7 +11,8 @@ export class McpService implements OnModuleDestroy {
   private readonly handler;
   readonly middleware;
 
-  constructor(store: WooCommerceClient, token: string) {
+  // allowedHosts adds in-cluster Service names to the localhost defaults.
+  constructor(store: WooCommerceClient, token: string, allowedHosts: string[] = []) {
     const safe = <T>(operation: (input: T) => Promise<unknown>) => async (input: T) => {
       try {
         return { content: [{ type: 'text' as const, text: JSON.stringify(await operation(input)) }] };
@@ -31,7 +32,7 @@ export class McpService implements OnModuleDestroy {
       return server;
     });
     const handle = toNodeHandler(this.handler);
-    const host = localhostHostValidation();
+    const host = hostHeaderValidation([...localhostAllowedHostnames(), ...allowedHosts]);
     const origin = localhostOriginValidation();
     const expected = Buffer.from(`Bearer ${token}`);
     this.middleware = (request: IncomingMessage, response: ServerResponse, next: () => void) => {

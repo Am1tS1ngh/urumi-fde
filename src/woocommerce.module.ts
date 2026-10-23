@@ -5,14 +5,14 @@ import { McpService } from './mcp/mcp.service.js';
 
 @Module({})
 export class WooCommerceModule {
-  static register(store: WooCommerceClient, token: string): DynamicModule {
+  static register(store: WooCommerceClient, token: string, allowedHosts: string[] = []): DynamicModule {
     return {
       module: WooCommerceModule,
       controllers: [HealthController],
       providers: [
         { provide: WooCommerceClient, useValue: store },
         // Explicit injection also works in tsx, which does not emit metadata.
-        { provide: McpService, inject: [WooCommerceClient], useFactory: (client: WooCommerceClient) => new McpService(client, token) },
+        { provide: McpService, inject: [WooCommerceClient], useFactory: (client: WooCommerceClient) => new McpService(client, token, allowedHosts) },
       ],
     };
   }

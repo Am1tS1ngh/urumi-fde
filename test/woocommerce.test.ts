@@ -158,3 +158,42 @@ test('configuration rejects accidental HTTP, embedded credentials, and invalid t
   await assert.rejects(() => createWooCommerceServer(new WooCommerceClient(config), 'short'), /MCP_UPSTREAM_TOKEN/);
 });
 
+
+test('in-cluster settings: extra allowed host and forwarded proto header', async t => {
+  const seen: (string | string[] | undefined)[] = [];
+  const store = createServer((req, res) => {
+    seen.push(req.headers['x-forwarded-proto']);
+    res.writeHead(200, { 'Content-Type': 'application/json' }).end(JSON.stringify([product]));
+  });
+  const storeUrl = await listen(store);
+  t.after(() => stop(store));
+  const serviceHost = 'woo-mcp.urumi-platform.svc.cluster.local';
+  const adapter = await createWooCommerceServer(new WooCommerceClient({
+    url: storeUrl, consumerKey: 'ck_test', consumerSecret: 'cs_test', allowHttp: true, forwardedProto: 'https',
+  }), token, [serviceHost]);
+  const adapterUrl = await listen(adapter.http);
+  t.after(async () => { await adapter.close(); });
+
+  const statusFor = (host: string) => new Promise<number | undefined>((resolve, reject) => {
+    const request = httpRequest(`${adapterUrl}/mcp`, { method: 'POST', headers: { Authorization: `Bearer ${token}`, Host: host } },
+      response => { response.resume(); resolve(response.statusCode); });
+    request.on('error', reject);
+    request.end();
+  });
+  assert.notEqual(await statusFor(`${serviceHost}:3001`), 403);
+  assert.equal(await statusFor('other.svc.cluster.local'), 403);
+
+  const client = new Client({ name: 'cluster-test', version: '1.0.0' }, { versionNegotiation: { mode: 'auto' } });
+  t.after(() => client.close());
+  await client.connect(new StreamableHTTPClientTransport(new URL(`${adapterUrl}/mcp`), {
+    requestInit: { headers: { Authorization: `Bearer ${token}` } },
+  }));
+  assert.ok(!(await client.callTool({ name: 'list_products', arguments: {} })).isError);
+  assert.deepEqual(seen, ['https']);
+});
+
+test('forwardedProto only accepts https', () => {
+  assert.throws(() => new WooCommerceClient({
+    url: 'https://store.example', consumerKey: 'ck_test', consumerSecret: 'cs_test', forwardedProto: 'http' as 'https',
+  }), /forwardedProto/);
+});

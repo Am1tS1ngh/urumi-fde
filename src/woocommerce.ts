@@ -8,6 +8,9 @@ export interface WooCommerceConfig {
   consumerSecret: string;
   allowHttp?: boolean;
   timeoutMs?: number;
+  // Set inside the cluster, where the store is reached over plain HTTP but
+  // WordPress must still treat the request as HTTPS to accept basic auth.
+  forwardedProto?: 'https';
 }
 
 // Only these controlled messages may cross the MCP boundary. Never relay a raw
@@ -18,6 +21,7 @@ export class WooCommerceClient {
   private readonly baseUrl: URL;
   private readonly authorization: string;
   private readonly timeoutMs: number;
+  private readonly forwardedProto?: 'https';
 
   constructor(config: WooCommerceConfig) {
     const url = new URL(config.url);
@@ -34,6 +38,10 @@ export class WooCommerceClient {
     if (!Number.isInteger(this.timeoutMs) || this.timeoutMs < 1 || this.timeoutMs > 60_000) {
       throw new Error('Store timeout must be an integer from 1 to 60000 ms.');
     }
+    if (config.forwardedProto !== undefined && config.forwardedProto !== 'https') {
+      throw new Error('forwardedProto may only be https.');
+    }
+    this.forwardedProto = config.forwardedProto;
     url.pathname = `${url.pathname.replace(/\/$/, '')}/wp-json/wc/v3/`;
     this.baseUrl = url;
     this.authorization = `Basic ${Buffer.from(`${config.consumerKey}:${config.consumerSecret}`).toString('base64')}`;
@@ -86,7 +94,12 @@ export class WooCommerceClient {
     try {
       const response = await fetch(url, {
         method,
-        headers: { Authorization: this.authorization, Accept: 'application/json', ...(write ? { 'Content-Type': 'application/json' } : {}) },
+        headers: {
+          Authorization: this.authorization,
+          Accept: 'application/json',
+          ...(write ? { 'Content-Type': 'application/json' } : {}),
+          ...(this.forwardedProto ? { 'X-Forwarded-Proto': this.forwardedProto } : {}),
+        },
         body: write ? JSON.stringify(options.body) : undefined,
         signal,
         // A redirect must never forward store credentials to another host.
