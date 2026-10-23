@@ -1,139 +1,143 @@
-# Urumi MCP Gateway assignment
+# Urumi MCP Gateway
 
-Work in progress. The WooCommerce MCP adapter now uses **NestJS** and implements
-all five required store tools over **Streamable HTTP**:
+One MCP endpoint for a whole team. The gateway sits in front of several MCP
+servers, merges their tools, checks each member's own API key, routes every call
+to the right server and records who called what. A React dashboard manages
+servers, people and keys, shows the audit log, and has a chat that uses the same
+tools as the signed-in member.
 
-- `list_products`
-- `create_product`
-- `list_orders`
-- `get_order`
-- `update_order_status`
+Everything runs on Kubernetes and is installed with Helm:
 
-The adapter runs locally on the host. WordPress, WooCommerce and MySQL run in
-the existing local Kubernetes cluster with persistent storage and Helm.
-The gateway, two additional upstream servers, dashboard, team access, audits,
-chat and complete application deployment remain pending.
+| Part | Where |
+| --- | --- |
+| Gateway (NestJS) | [gateway/](gateway/) |
+| Dashboard (React + Vite) | [dashboard/](dashboard/) |
+| WooCommerce MCP adapter (NestJS) | [src/](src/) |
+| Utilities MCP server | [mcp-servers/utils/](mcp-servers/utils/) |
+| MCP reference server, pinned | [mcp-servers/everything/](mcp-servers/everything/) |
+| WordPress, WooCommerce and MySQL | [charts/store/](charts/store/) |
+| Gateway, dashboard, Postgres and MCP servers | [charts/platform/](charts/platform/) |
 
-## Start with the guide
+Read [the design notes](docs/DESIGN.md) for how requests flow, the tool naming
+rule, failure handling and upgrades, and [the threat model](docs/THREAT_MODEL.md)
+for the security reasoning. [The checklist](docs/CHECKLIST.md) maps every
+requirement to the build.
 
-For the complete beginner-to-submission course, read these three Markdown parts
-in order. They include theory, source walkthroughs, exercises, verification and
-the remaining build sequence. Future designs are explicitly marked as pending.
+## Run it on a local cluster
 
-1. [Foundations and the store](docs/course/01-foundations-and-store.md)
-2. [NestJS and the five MCP tools](docs/course/02-nestjs-and-five-mcp-tools.md)
-3. [Gateway through final submission](docs/course/03-gateway-to-final-submission.md)
-
-Read [the five tool implementation guide](docs/five-tools-guide.md) for the
-beginner explanation, NestJS architecture, contracts, file walkthrough, exercises,
-commands, verified results and remaining requirements. A Word edition is included
-as `docs/NestJS_WooCommerce_Five_Tools_Guide.docx`.
-
-Earlier infrastructure guides remain useful:
-
-- [Local Kubernetes](docs/local-kubernetes.md)
-- [Store foundation](docs/store-foundation.md)
-- [Local HTTPS and credentials](docs/live-store-mcp.md)
-
-## Verify without a real store
-
-Node.js 22.13+ and npm are required.
+You need Windows with Docker Desktop running, plus `kubectl`. The scripts download
+pinned, checksum-verified `k3d` and `helm` into the ignored `.local/` folder.
 
 ```powershell
-npm.cmd ci
-npm.cmd run typecheck
-npm.cmd test
-npm.cmd run build
-```
-
-Expected: **25 passed, 0 failed**. These tests use synthetic HTTP fixtures and real
-SDK client connections to NestJS. They need neither Docker nor real credentials.
-The pinned SDK server/client packages are 2.3.1, Node adapter 2.1.1, and NestJS
-common/core/platform-express 12.2.0.
-
-## Verify the real local store
-
-Open Docker Desktop and wait for Engine running. From the project directory:
-
-```powershell
+.\scripts\install-local-tools.ps1
 .\scripts\create-local-cluster.ps1
-kubectl --kubeconfig .local/kubeconfig -n urumi get pods,pvc
-.\scripts\run-local-adapter.ps1 -Smoke
+.\scripts\deploy-store-foundation.ps1
+.\scripts\deploy-platform.ps1
 ```
 
-The existing ignored `.env` and local CA must be configured. For fresh setup,
-follow the HTTPS guide; do not overwrite working credentials with the example.
-The read-only smoke expects First Product at 199 and original order 14.
+- The store deploy creates the database and setup Secrets, installs the store
+  chart, then runs a Job that installs WooCommerce, enables cash on delivery and
+  creates the adapter's REST API key.
+- The platform deploy builds all five images with a fresh tag, imports them into
+  k3d and runs `helm upgrade --install`.
+- Generated secrets are saved once in `.local/platform-secrets.env` and reused on
+  every run.
 
-The following command **creates a labelled product and separate demo order** and
-changes that new order's status. Each execution adds records:
+Then open:
+
+- Dashboard: <http://gateway.localhost:8080>. Sign in as `admin@urumi.local`
+  with `ADMIN_PASSWORD` from `.local/platform-secrets.env`.
+- Store: <http://store.localhost:8080>. The WordPress admin is
+  `STORE_ADMIN_USER` / `STORE_ADMIN_PASSWORD` from the same file.
+- MCP endpoint for clients: `http://127.0.0.1:8080/mcp`, with a member key as the
+  bearer token. Node on Windows cannot resolve `*.localhost`, so clients use the IP.
+
+Chat needs an OpenAI-compatible API with tool calling. The default is Groq with
+`llama-3.3-70b-versatile`. Add a key, then restart the gateway so it reads the
+updated Secret:
 
 ```powershell
-.\scripts\run-local-adapter.ps1 -Smoke -WriteChecks
+.\scripts\create-local-secrets.ps1 -LlmApiKey '<your key>'
+kubectl --kubeconfig .local\kubeconfig -n urumi-platform rollout restart deployment gateway
 ```
 
-Do not automatically retry failed writes; inspect the store first. The sanitized
-result is saved to ignored `.local/five-tools-verification.json`.
-The script arranges its demo order through REST; `create_order` is not an MCP tool.
+### Production-like settings
 
-To keep the adapter running instead:
+`values-prod.yaml` in each chart shows what changes for a real server: a DNS
+name, TLS Secret, storage class and registry images. The templates are the same
+ones used locally. Create the same Secrets with your own values, then:
+
+```bash
+helm upgrade --install store charts/store -n urumi -f charts/store/values-prod.yaml --wait
+helm upgrade --install platform charts/platform -n urumi-platform -f charts/platform/values-prod.yaml --wait
+```
+
+See [Upgrades and rollback](docs/DESIGN.md#upgrades-and-rollback).
+
+## Connect an MCP client
+
+Create a key on the **API keys** page. Any client that speaks Streamable HTTP only
+needs the URL and that key:
+
+```json
+{
+  "mcpServers": {
+    "urumi": {
+      "type": "http",
+      "url": "http://127.0.0.1:8080/mcp",
+      "headers": { "Authorization": "Bearer mcpk_..." }
+    }
+  }
+}
+```
+
+Tools appear as `<server>__<tool>`, for example `woo__list_orders` or
+`utils__convert_currency`.
+
+## Develop without Kubernetes
+
+Each service runs on its own with Node 22.13 or newer.
+
+1. Start Postgres:
+   `docker run -d --name gateway-pg -e POSTGRES_USER=gateway -e POSTGRES_PASSWORD=gateway -e POSTGRES_DB=gateway -p 5433:5432 postgres:17.7-alpine`
+2. In `mcp-servers/utils`: `npm ci`, set `UTILS_MCP_API_KEY` to any value of 16 or more
+   characters, then `npm start`. It listens on port 3002.
+3. In `gateway`: `npm ci`, copy `.env.example` to `.env`, fill in the blanks, then
+   `npm run dev`. It listens on port 3000.
+4. In `dashboard`: `npm ci` and `npm run dev`. Open <http://localhost:5173>. Vite
+   forwards `/api` and `/mcp` to the gateway.
+
+The WooCommerce adapter's own local setup, with HTTPS and a live store, is in
+[docs/live-store-mcp.md](docs/live-store-mcp.md).
+
+## Tests
 
 ```powershell
-.\scripts\run-local-adapter.ps1
+npm test                          # adapter: tools, validation, HTTP and auth
+cd gateway; npm test              # gateway: crypto, tool names, SSRF guard, time zones
+cd mcp-servers\utils; npm test    # utils server over a real MCP client
+cd dashboard; npm run build       # type checks and builds the dashboard
 ```
 
-Health: `http://127.0.0.1:3001/healthz`. MCP: `http://127.0.0.1:3001/mcp`,
-with the adapter bearer token. No paid API is required for this milestone.
+## Walkthrough of the acceptance flow
 
-## Verified checkpoint on 22 October 2026
-
-Typecheck, 25 fixture tests and build passed. A real SDK client discovered all
-five tools and invoked them against WooCommerce. Product 15 was created at 49.00,
-and separate order 16 changed from on-hold to processing and was read back.
-Original order 14 retained processing status and total 199.00. Date filters
-included the original order in its GMT range and excluded it from another day.
-
-The store Helm rollout applied an Apache log format that omits authenticated
-usernames (WooCommerce consumer keys), queries, referers and user agents.
-Existing PVCs were preserved. This affects future access logs; prior logs are not
-erased. Local and production-example chart lint passed.
-
-## Security boundaries
-
-Store credentials stay in the server environment; the adapter uses a separate
-bearer token. Requests have strict input validation, fixed store paths, HTTPS
-by default, redirect rejection, a five-second deadline and 2 MB response cap.
-Order responses omit billing/shipping details, customer email, order keys and
-arbitrary metadata. Write errors may have an unknown outcome; no retries occur.
-
-Tool annotations are hints, not member authorization or enforced confirmation.
-A valid adapter token currently allows all five tools. The host adapter is bound
-to loopback. Kubernetes Secret injection, gateway-only NetworkPolicy, member
-identity, hashed revocable keys and audit attribution remain to be built.
-Health checks do not prove end-to-end store availability.
-
-## Mandatory work still pending
-
-- Reproducible store setup from a fresh deployment.
-- Gateway upstream CRUD/disable, credentials, discovery aggregation, collision
-  policy, routing, timeouts and isolated failures, with three upstreams total.
-- React dashboard and backend for servers, invitations, admin/member access,
-  member keys, hashing and immediate revocation.
-- Tool audit records and dashboard views.
-- Real LLM chat loop through the gateway as the member.
-- External MCP client and complete two-user demonstration.
-- Every application workload deployed by Helm, shared local/production values,
-  Secrets, storage, probes, resource limits, Ingress and gateway-only adapter access.
-- Reproducibility, threat/design notes, upgrade/rollback story, video and GitHub
-  submission.
-
-The official assignment PDF is the requirements source. The hiring email gives
-the deadline as **26 October 2026 at 11:59 PM IST**. Optional bonus work follows
-the mandatory core.
-
-## Official references
-
-- [NestJS modules](https://docs.nestjs.com/modules)
-- [MCP architecture](https://modelcontextprotocol.io/docs/2026-07-28/learn/architecture)
-- [TypeScript SDK](https://github.com/modelcontextprotocol/typescript-sdk)
-- [WooCommerce REST API](https://developer.woocommerce.com/docs/apis/rest-api/)
+1. **Storefront order.** Open the store, add the sample T-shirt to the cart and check
+   out with cash on delivery. The order shows in WooCommerce > Orders.
+2. **User A creates a product in chat.** Sign in as the admin and ask: *Create a
+   product called Blue Mug priced at 499.* The tool trace shows `woo__create_product`.
+3. **Manual order, read back in chat.** In WordPress, add an order for Blue Mug, then
+   ask in chat: *Show me the latest order.*
+4. **User B with an external client.** Invite B on the **Members** page. B accepts,
+   creates a key, and configures their MCP client with the URL and key only.
+5. **Discovery and retrieval.** B's client lists tools and calls `woo__get_order`.
+6. **Two servers in one prompt.** *What is order 42 worth in US dollars?* uses
+   `woo__get_order` and then `utils__convert_currency`.
+7. **Revocation.** B revokes the key, or an admin does. B's next call is refused
+   and the attempt is logged as denied.
+8. **Disable a server.** Disable Utilities on **Servers**. Its tools disappear from
+   chat and from B's client on the next `tools/list`.
+9. **Outage.** `kubectl -n urumi-platform scale deployment everything-mcp --replicas=0`.
+   The server shows **Unreachable** and every other tool keeps working. Scale it
+   back to 1 to recover.
+10. **Audit.** The **Audit log** shows every call with the user, server, tool,
+    outcome and whether it came from chat or an MCP client.
