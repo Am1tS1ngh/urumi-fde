@@ -1,0 +1,77 @@
+# Credentials live in Secrets created outside Helm and are referenced here by name.
+
+# Where people open the dashboard. Used to build invite links.
+publicUrl: ""
+# Lets the chat model work out what "today" means.
+timezone: UTC
+
+persistence:
+  # Empty uses the cluster default.
+  storageClass: ""
+
+gateway:
+  image: urumi/gateway:dev
+  # Keys: POSTGRES_PASSWORD, GATEWAY_ENCRYPTION_KEY, ADMIN_PASSWORD and optionally LLM_API_KEY.
+  existingSecret: gateway
+  adminEmail: ""
+  callTimeoutMs: 15000
+  llm:
+    baseUrl: https://api.groq.com/openai/v1
+    model: llama-3.3-70b-versatile
+  resources:
+    requests: { cpu: 50m, memory: 128Mi }
+    limits: { cpu: "1", memory: 512Mi }
+
+postgres:
+  image: postgres:17.7-alpine
+  storageSize: 2Gi
+  resources:
+    requests: { cpu: 50m, memory: 128Mi }
+    limits: { cpu: "1", memory: 512Mi }
+
+dashboard:
+  image: urumi/dashboard:dev
+  resources:
+    requests: { cpu: 10m, memory: 16Mi }
+    limits: { cpu: 200m, memory: 64Mi }
+
+# MCP servers that run next to the gateway. Each gets a Service named <slug>-mcp,
+# is reachable only from the gateway, and is registered with the gateway on first start.
+upstreams:
+  woo:
+    name: WooCommerce
+    image: urumi/woo-mcp:dev
+    port: 3001
+    existingSecret: woo-mcp
+    auth: { type: bearer, secretKey: MCP_UPSTREAM_TOKEN }
+    env:
+      WOOCOMMERCE_URL: http://store-wordpress.urumi.svc.cluster.local
+      WOOCOMMERCE_ALLOW_HTTP: "true"
+      WOOCOMMERCE_FORWARDED_PROTO: https
+  utils:
+    name: Utilities
+    image: urumi/utils-mcp:dev
+    port: 3002
+    existingSecret: utils-mcp
+    auth: { type: header, headerName: X-Api-Key, secretKey: UTILS_MCP_API_KEY }
+  everything:
+    name: Reference server
+    image: urumi/everything-mcp:dev
+    port: 3001
+    auth: { type: none }
+
+upstreamResources:
+  requests: { cpu: 20m, memory: 64Mi }
+  limits: { cpu: 500m, memory: 256Mi }
+
+ingress:
+  className: traefik
+  host: ""
+  # Also answer requests for any other host name. Handy locally, where MCP clients
+  # cannot resolve *.localhost and use http://127.0.0.1:8080/mcp instead.
+  matchAnyHost: false
+  tls: []
+  # Where the ingress controller runs, so network policies can let it in.
+  controllerNamespace: kube-system
+  controllerPodLabels:
+    app.kubernetes.io/name: traefik

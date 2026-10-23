@@ -1,0 +1,85 @@
+{{- $seeds := list }}
+{{- $hosts := list }}
+{{- range $slug, $upstream := .Values.upstreams }}
+{{- $host := include "platform.upstreamHost" (dict "slug" $slug "root" $) }}
+{{- $hosts = append $hosts $host }}
+{{- $seed := dict "slug" $slug "name" $upstream.name "url" (printf "http://%s:%v/mcp" $host $upstream.port) "authType" $upstream.auth.type }}
+{{- if ne $upstream.auth.type "none" }}
+{{- $_ := set $seed "secretEnv" (include "platform.credentialEnv" $slug) }}
+{{- end }}
+{{- if eq $upstream.auth.type "header" }}
+{{- $_ := set $seed "headerName" $upstream.auth.headerName }}
+{{- end }}
+{{- $seeds = append $seeds $seed }}
+{{- end }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: gateway
+  labels:
+    {{- include "platform.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  ports:
+    - { name: http, port: 3000, targetPort: http }
+  selector:
+    {{- include "platform.selector" (dict "root" . "component" "gateway") | nindent 4 }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gateway
+  labels:
+    {{- include "platform.labels" . | nindent 4 }}
+spec:
+  # One replica: upstream status and client connections are cached in memory.
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "platform.selector" (dict "root" . "component" "gateway") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "platform.labels" . | nindent 8 }}
+        app.kubernetes.io/component: gateway
+    spec:
+      {{- include "platform.podSecurity" . | nindent 6 }}
+      containers:
+        - name: gateway
+          image: {{ .Values.gateway.image | quote }}
+          imagePullPolicy: IfNotPresent
+          {{- include "platform.containerSecurity" . | nindent 10 }}
+          ports:
+            - { name: http, containerPort: 3000 }
+          envFrom:
+            - secretRef: { name: {{ .Values.gateway.existingSecret | quote }} }
+          env:
+            - { name: DATABASE_URL, value: "postgres://gateway:$(POSTGRES_PASSWORD)@gateway-postgres:5432/gateway" }
+            - { name: PUBLIC_URL, value: {{ required "publicUrl must be set" .Values.publicUrl | quote }} }
+            - { name: ADMIN_EMAIL, value: {{ .Values.gateway.adminEmail | quote }} }
+            - { name: TIMEZONE, value: {{ .Values.timezone | quote }} }
+            - { name: CALL_TIMEOUT_MS, value: {{ .Values.gateway.callTimeoutMs | quote }} }
+            - { name: UPSTREAM_ALLOW_HOSTS, value: {{ join "," $hosts | quote }} }
+            - { name: SEED_UPSTREAMS, value: {{ toJson $seeds | quote }} }
+            - { name: LLM_BASE_URL, value: {{ .Values.gateway.llm.baseUrl | quote }} }
+            - { name: LLM_MODEL, value: {{ .Values.gateway.llm.model | quote }} }
+            {{- range $slug, $upstream := .Values.upstreams }}
+            {{- if ne $upstream.auth.type "none" }}
+            - name: {{ include "platform.credentialEnv" $slug }}
+              valueFrom:
+                secretKeyRef: { name: {{ $upstream.existingSecret | quote }}, key: {{ $upstream.auth.secretKey }} }
+            {{- end }}
+            {{- end }}
+          startupProbe:
+            httpGet: { path: /readyz, port: http }
+            periodSeconds: 3
+            failureThreshold: 40
+          readinessProbe:
+            httpGet: { path: /readyz, port: http }
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: { path: /healthz, port: http }
+            periodSeconds: 15
+            failureThreshold: 4
+          resources:
+            {{- toYaml .Values.gateway.resources | nindent 12 }}

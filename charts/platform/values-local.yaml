@@ -1,0 +1,9 @@
+publicUrl: http://gateway.localhost:8080
+timezone: Asia/Kolkata
+persistence:
+  storageClass: local-path
+gateway:
+  adminEmail: admin@urumi.local
+ingress:
+  host: gateway.localhost
+  matchAnyHost: true

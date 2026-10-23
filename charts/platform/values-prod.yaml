@@ -1,0 +1,19 @@
+# Example only. Use your own DNS name, registry, storage class and TLS Secret.
+publicUrl: https://gateway.example.com
+timezone: Asia/Kolkata
+persistence:
+  storageClass: local-path
+gateway:
+  image: registry.example.com/urumi/gateway:0.1.0
+  adminEmail: admin@example.com
+dashboard:
+  image: registry.example.com/urumi/dashboard:0.1.0
+upstreams:
+  woo: { image: registry.example.com/urumi/woo-mcp:0.1.0 }
+  utils: { image: registry.example.com/urumi/utils-mcp:0.1.0 }
+  everything: { image: registry.example.com/urumi/everything-mcp:0.1.0 }
+ingress:
+  host: gateway.example.com
+  tls:
+    - secretName: gateway-tls
+      hosts: [gateway.example.com]

@@ -1,0 +1,69 @@
+{{- range $slug, $upstream := .Values.upstreams }}
+{{- $component := printf "%s-mcp" $slug }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $component }}
+  labels:
+    {{- include "platform.labels" $ | nindent 4 }}
+spec:
+  type: ClusterIP
+  ports:
+    - { name: http, port: {{ $upstream.port }}, targetPort: http }
+  selector:
+    {{- include "platform.selector" (dict "root" $ "component" $component) | nindent 4 }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $component }}
+  labels:
+    {{- include "platform.labels" $ | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "platform.selector" (dict "root" $ "component" $component) | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "platform.labels" $ | nindent 8 }}
+        app.kubernetes.io/component: {{ $component }}
+        # The network policy only lets the gateway reach pods with this label.
+        urumi.dev/role: mcp-upstream
+    spec:
+      {{- include "platform.podSecurity" $ | nindent 6 }}
+      containers:
+        - name: server
+          image: {{ $upstream.image | quote }}
+          imagePullPolicy: IfNotPresent
+          {{- include "platform.containerSecurity" $ | nindent 10 }}
+          ports:
+            - { name: http, containerPort: {{ $upstream.port }} }
+          {{- with $upstream.existingSecret }}
+          envFrom:
+            - secretRef: { name: {{ . | quote }} }
+          {{- end }}
+          env:
+            - { name: HOST, value: "0.0.0.0" }
+            - { name: PORT, value: {{ $upstream.port | quote }} }
+            - { name: MCP_ALLOWED_HOSTS, value: {{ printf "%s,%s" $component (include "platform.upstreamHost" (dict "slug" $slug "root" $)) | quote }} }
+            {{- range $name, $value := $upstream.env }}
+            - { name: {{ $name }}, value: {{ $value | quote }} }
+            {{- end }}
+          readinessProbe:
+            tcpSocket: { port: http }
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket: { port: http }
+            initialDelaySeconds: 10
+            periodSeconds: 20
+          resources:
+            {{- toYaml $.Values.upstreamResources | nindent 12 }}
+          volumeMounts:
+            - { name: tmp, mountPath: /tmp }
+      volumes:
+        - name: tmp
+          emptyDir: {}
+{{- end }}
