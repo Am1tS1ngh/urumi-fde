@@ -28,9 +28,15 @@ if ($existing) {
             throw "Port $port is already occupied. Resolve the conflict before creating the cluster."
         }
     }
+    # Docker Desktop on some WSL2 kernels still uses cgroup v1, which recent
+    # kubelets refuse by default.
+    $extraArgs = @()
+    if ((& docker info --format '{{.CgroupVersion}}') -eq '1') {
+        $extraArgs = @('--k3s-arg', '--kubelet-arg=fail-cgroupv1=false@server:*')
+    }
     # One node keeps the local learning environment small. This is not HA.
     # Only loopback ports are published; the LAN cannot connect to these ports.
-    & $k3d cluster create urumi `
+    & $k3d cluster create urumi @extraArgs `
         --image rancher/k3s:v1.35.5-k3s1 `
         --servers 1 --agents 0 `
         --api-port '127.0.0.1:6550' `
