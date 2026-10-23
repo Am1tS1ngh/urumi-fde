@@ -24,3 +24,14 @@ ingress:
   host: ""
   extraHosts: []
   tls: []
+# Installs and configures WooCommerce after each deploy, and creates the adapter's API key.
+setup:
+  enabled: true
+  image: wordpress:cli-2.12.0-php8.3
+  # Secret with admin-user, admin-password, admin-email, consumer-key and consumer-secret.
+  existingSecret: ""
+  # Only used for a fresh install. An existing site keeps its URL.
+  url: ""
+  title: Urumi Store
+  currency: INR
+  woocommerceVersion: 11.2.1

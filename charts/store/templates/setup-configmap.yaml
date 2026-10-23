@@ -1,0 +1,72 @@
+{{- if .Values.setup.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "store.name" . }}-setup
+  labels:
+    {{- include "store.labels" . | nindent 4 }}
+data:
+  setup.sh: |
+    set -eu
+    cd /var/www/html
+
+    until [ -f wp-config.php ]; do echo "Waiting for WordPress files..."; sleep 5; done
+    until php -r 'exit(@mysqli_connect(getenv("WORDPRESS_DB_HOST"), getenv("WORDPRESS_DB_USER"), getenv("WORDPRESS_DB_PASSWORD"), getenv("WORDPRESS_DB_NAME")) ? 0 : 1);'; do
+      echo "Waiting for the database..."; sleep 5
+    done
+
+    if ! wp core is-installed; then
+      wp core install --url="$STORE_URL" --title="$STORE_TITLE" --skip-email \
+        --admin_user="$ADMIN_USER" --admin_password="$ADMIN_PASSWORD" --admin_email="$ADMIN_EMAIL"
+    fi
+    # An existing store may have a different admin, so look it up instead of assuming.
+    admin=$(wp user list --role=administrator --field=user_login --number=1)
+
+    wp rewrite structure '/%postname%/'
+    wp plugin is-installed woocommerce || wp plugin install woocommerce --version="$WOOCOMMERCE_VERSION"
+    wp plugin activate woocommerce
+    wp wc tool run install_pages --user="$admin"
+
+    # Open the shop, skip shipping and offer cash on delivery so checkout works without a payment provider.
+    wp option update woocommerce_coming_soon no
+    wp option update woocommerce_ship_to_countries disabled
+    wp option update woocommerce_currency "$STORE_CURRENCY"
+    wp option update woocommerce_cod_settings --format=json \
+      '{"enabled":"yes","title":"Cash on delivery","description":"Pay with cash upon delivery.","instructions":"Pay with cash upon delivery.","enable_for_methods":[],"enable_for_virtual":"yes"}'
+
+    wp eval-file /setup/api-key.php "$admin"
+
+    if [ "$(wp post list --post_type=product --post_status=any --format=count)" = "0" ]; then
+      wp wc product create --user="$admin" --name="Sample T-shirt" --regular_price=499 --status=publish
+    fi
+    echo "Store is ready."
+
+  api-key.php: |
+    <?php
+    // Creates or updates the REST API key used by the MCP adapter. The key comes from a Secret,
+    // so a fresh store and a reinstalled one end up with the same credentials.
+    global $wpdb;
+    $user = get_user_by('login', $args[0]);
+    $key = getenv('WOOCOMMERCE_CONSUMER_KEY');
+    $secret = getenv('WOOCOMMERCE_CONSUMER_SECRET');
+    if (!$user || !$key || !$secret) {
+        WP_CLI::error('The admin user and both API key values are required.');
+    }
+
+    $table = $wpdb->prefix . 'woocommerce_api_keys';
+    $description = 'MCP adapter';
+    $row = [
+        'user_id' => $user->ID,
+        'description' => $description,
+        'permissions' => 'read_write',
+        'consumer_key' => wc_api_hash($key),
+        'consumer_secret' => $secret,
+        'truncated_key' => substr($key, -7),
+    ];
+    $id = $wpdb->get_var($wpdb->prepare("SELECT key_id FROM {$table} WHERE description = %s", $description));
+    $saved = $id ? $wpdb->update($table, $row, ['key_id' => $id]) : $wpdb->insert($table, $row);
+    if ($saved === false) {
+        WP_CLI::error('Could not save the API key.');
+    }
+    WP_CLI::success('The MCP adapter API key is in place.');
+{{- end }}

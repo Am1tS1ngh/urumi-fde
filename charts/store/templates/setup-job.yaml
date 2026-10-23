@@ -1,0 +1,69 @@
+{{- if .Values.setup.enabled }}
+# Runs after every install and upgrade. Each step checks before it changes anything,
+# so running it again on a working store is safe.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "store.name" . }}-setup
+  labels:
+    {{- include "store.labels" . | nindent 4 }}
+  annotations:
+    helm.sh/hook: post-install,post-upgrade
+    helm.sh/hook-delete-policy: before-hook-creation
+spec:
+  backoffLimit: 3
+  activeDeadlineSeconds: 900
+  template:
+    metadata:
+      labels:
+        {{- include "store.labels" . | nindent 8 }}
+        app.kubernetes.io/component: setup
+    spec:
+      restartPolicy: OnFailure
+      automountServiceAccountToken: false
+      securityContext:
+        # Same user as the WordPress image, so files it writes stay editable by Apache.
+        runAsUser: 33
+        runAsGroup: 33
+        runAsNonRoot: true
+        seccompProfile: { type: RuntimeDefault }
+      containers:
+        - name: setup
+          image: {{ .Values.setup.image | quote }}
+          imagePullPolicy: IfNotPresent
+          command: ["sh", "/setup/setup.sh"]
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: { drop: [ALL] }
+          env:
+            - { name: HOME, value: /tmp }
+            - { name: WORDPRESS_DB_HOST, value: {{ printf "%s-mysql" (include "store.name" .) | quote }} }
+            - { name: WORDPRESS_DB_NAME, value: {{ .Values.mysql.database | quote }} }
+            - { name: WORDPRESS_DB_USER, value: {{ .Values.mysql.user | quote }} }
+            - name: WORDPRESS_DB_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: {{ .Values.existingSecret | quote }}, key: mysql-password }
+            - { name: STORE_URL, value: {{ required "setup.url must be set" .Values.setup.url | quote }} }
+            - { name: STORE_TITLE, value: {{ .Values.setup.title | quote }} }
+            - { name: STORE_CURRENCY, value: {{ .Values.setup.currency | quote }} }
+            - { name: WOOCOMMERCE_VERSION, value: {{ .Values.setup.woocommerceVersion | quote }} }
+            {{- $secret := required "setup.existingSecret must name the store setup Secret" .Values.setup.existingSecret }}
+            {{- range $name, $key := dict "ADMIN_USER" "admin-user" "ADMIN_PASSWORD" "admin-password" "ADMIN_EMAIL" "admin-email" "WOOCOMMERCE_CONSUMER_KEY" "consumer-key" "WOOCOMMERCE_CONSUMER_SECRET" "consumer-secret" }}
+            - name: {{ $name }}
+              valueFrom:
+                secretKeyRef: { name: {{ $secret | quote }}, key: {{ $key }} }
+            {{- end }}
+          resources:
+            requests: { cpu: 50m, memory: 128Mi }
+            limits: { cpu: "1", memory: 512Mi }
+          volumeMounts:
+            - { name: content, mountPath: /var/www/html }
+            - { name: setup, mountPath: /setup, readOnly: true }
+      volumes:
+        - name: content
+          persistentVolumeClaim:
+            claimName: {{ include "store.name" . }}-wordpress
+        - name: setup
+          configMap:
+            name: {{ include "store.name" . }}-setup
+{{- end }}

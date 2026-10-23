@@ -15,3 +15,6 @@ ingress:
   tls:
     - secretName: store-local-tls
       hosts: [store.localhost, localhost]
+setup:
+  existingSecret: store-setup
+  url: http://store.localhost:8080

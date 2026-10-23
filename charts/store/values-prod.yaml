@@ -10,3 +10,6 @@ ingress:
   tls:
     - secretName: store-tls
       hosts: [store.example.com]
+setup:
+  existingSecret: store-setup
+  url: https://store.example.com

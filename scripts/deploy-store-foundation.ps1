@@ -27,6 +27,9 @@ if (-not $namespace) {
     if ($LASTEXITCODE -ne 0) { throw 'Namespace creation failed.' }
 }
 
+# The setup Job needs the store admin and the adapter's API key.
+& (Join-Path $PSScriptRoot 'create-local-secrets.ps1')
+
 $existing = & kubectl --kubeconfig $kubeconfig -n urumi get secret store-database -o name --ignore-not-found
 if ($LASTEXITCODE -ne 0) { throw 'Cannot inspect the database Secret.' }
 if (-not $existing) {
@@ -43,13 +46,11 @@ if (-not $existing) {
 }
 
 # Validate against the running API before changing application resources.
-$rendered = & $helm template store $chart -n urumi -f $values
-if ($LASTEXITCODE -ne 0) { throw 'Chart rendering failed.' }
-$rendered | & kubectl --kubeconfig $kubeconfig -n urumi apply --dry-run=server -f -
+& $helm upgrade --install store $chart --kubeconfig $kubeconfig -n urumi -f $values --dry-run=server | Out-Null
 if ($LASTEXITCODE -ne 0) { throw 'Kubernetes rejected the rendered chart.' }
 
 & $helm upgrade --install store $chart --kubeconfig $kubeconfig -n urumi -f $values --wait --timeout 8m
 if ($LASTEXITCODE -ne 0) { throw 'Store rollout failed. Inspect pods and events; do not delete the PVCs.' }
 & kubectl --kubeconfig $kubeconfig -n urumi get deployments,pvc,services,ingress
 if ($LASTEXITCODE -ne 0) { throw 'Could not inspect the store resources.' }
-Write-Host 'Open http://store.localhost:8080. An existing store is preserved; a fresh store still needs WordPress and WooCommerce setup.'
+Write-Host 'Open http://store.localhost:8080. The setup Job installed WooCommerce; an existing store keeps its content.'
