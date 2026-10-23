@@ -1,0 +1,9 @@
+{
+  "name": "urumi-everything-mcp",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Pins the official MCP reference server so its image builds the same way every time.",
+  "dependencies": {
+    "@modelcontextprotocol/server-everything": "2.0.0"
+  }
+}
