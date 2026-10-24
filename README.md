@@ -21,7 +21,10 @@ Everything runs on Kubernetes and is installed with Helm:
 Read [the design notes](docs/DESIGN.md) for how requests flow, the tool naming
 rule, failure handling and upgrades, and [the threat model](docs/THREAT_MODEL.md)
 for the security reasoning. [The checklist](docs/CHECKLIST.md) maps every
-requirement to the build.
+requirement to the build. [The status page](docs/STATUS.md) has step-by-step setup and
+troubleshooting, [the scenarios](docs/SCENARIO.md) walk through the demo, and
+[the completion report](docs/COMPLETION.md) shows what is done and what remains.
+[Which document to use](docs/STATUS.md#which-document-to-use) says which one to read when.
 
 ## Run it on a local cluster
 

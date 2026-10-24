@@ -66,7 +66,7 @@ Mark each item by changing `[ ]` to `[x]`. On GitHub you can also tick the boxes
 
 ## 6. Chat agent and external clients
 
-- [ ] Real LLM tool-calling loop through the gateway
+- [x] Real LLM tool-calling loop through the gateway
 - [x] Tool calls shown in the chat (visible trace)
 - [x] Chat calls attributed to the logged-in member
 - [x] External MCP client connects using only the gateway URL and a member key
@@ -88,11 +88,11 @@ Mark each item by changing `[ ]` to `[x]`. On GitHub you can also tick the boxes
 ## 8. Final acceptance flow
 
 - [x] 1. Storefront checkout, with the resulting order visible in WooCommerce admin
-- [ ] 2. User A creates a product through the dashboard chat
-- [ ] 3. A manually placed order for that product is retrieved through chat
+- [x] 2. User A creates a product through the dashboard chat
+- [x] 3. A manually placed order for that product is retrieved through chat
 - [x] 4. User B connects an external MCP client using only the gateway URL and B's key
 - [x] 5. Tools from enabled servers are discovered, and order retrieval succeeds
-- [ ] 6. One external-client prompt uses two different upstreams
+- [x] 6. One external-client prompt uses two different upstreams
 - [x] 7. Revocation rejects B's next call
 - [x] 8. Disabling an upstream removes its tools from both the chat and the external client
 - [x] 9. An upstream outage leaves the other servers usable and shows Unreachable status
@@ -111,5 +111,7 @@ Mark each item by changing `[ ]` to `[x]`. On GitHub you can also tick the boxes
 - Scaling `everything-mcp` to zero shows Unreachable while the other 9 tools keep working. It reconnects on the next check.
 - A pod without the gateway label is refused by all three MCP servers. A pod with it gets through.
 - Helm rollback to an earlier revision and forward again kept all data.
-- Chat ran end to end against a stand-in OpenAI-compatible model (two tools on two servers in one turn, traced and
-  audited as `chat`). The four open items need a run with a real `LLM_API_KEY`.
+- Chat with Groq `openai/gpt-oss-120b`: created "Blue Mug" (product 13) after confirming, read back manual order 15,
+  and priced it in USD with `woo__get_order` and `utils__convert_currency` in one prompt. Audited as `chat`.
+- User B's external agent, with only the gateway URL and B's key, answered one prompt with two servers
+  (`woo__get_order` and `utils__convert_currency`). Audited as `mcp` under B.
