@@ -7,7 +7,7 @@
 | **Overall** | Core complete and verified, including chat with a real LLM (Groq `openai/gpt-oss-120b`). |
 | **Latest update** | Completion report and document guide added; demo run at scenarios 1–4 of 10 passed (see [Change log](#12-change-log)) |
 | **Start here** | [Which document to use](#which-document-to-use) |
-| **Published** | Not yet. `core-build` is local only; GitHub has `main` at `fb4091d`. |
+| **Published** | [PR #1](https://github.com/nikhiljangid120/urumi-fde/pull/1): `core-build` from the fork `Am1tS1ngh/urumi-fde` into `main`. Open and mergeable; waiting for the owner to merge. |
 | **Related** | [Completion report](COMPLETION.md) · [Scenarios](SCENARIO.md) · [Checklist](CHECKLIST.md) · [Design](DESIGN.md) · [Threat model](THREAT_MODEL.md) · [README](../README.md) |
 
 ## Contents
@@ -353,7 +353,7 @@ The dashboard was checked with screenshots, and its actions through the API.
 | 3 | Rehearse the demo using [SCENARIO.md](SCENARIO.md) scenarios 1–10 | In progress: 1–4 passed, next is 5 (external client with `demo-b`'s `laptop` key) |
 | 3a | Record the demo | To do, after the rehearsal |
 | 4 | Rotate the Groq key, run `.\scripts\create-local-secrets.ps1 -LlmApiKey '<new key>'`, restart the gateway | To do |
-| 5 | Commit `STATUS.md`, `SCENARIO.md`, `COMPLETION.md` and `CHECKLIST.md`, then push `core-build` | Waiting on author details and branch-or-merge choice |
+| 5 | Commit the docs and open a pull request | Done: [PR #1](https://github.com/nikhiljangid120/urumi-fde/pull/1), waiting for `nikhiljangid120` to merge |
 
 ## 12. Change log
 
@@ -429,7 +429,7 @@ No code changed in this update.
 | `fb4091d` | Starting point: WooCommerce adapter and store chart |
 
 **Committed:** `d00eb84` adds STATUS, SCENARIO and COMPLETION and ticks the checklist; the next commit adds `docs/bootcamp/`.
-**Pushing:** `core-build` goes up for a pull request into `main`.
+**Pushed:** all of the above, via [PR #1](https://github.com/nikhiljangid120/urumi-fde/pull/1) from `Am1tS1ngh/urumi-fde`.
 
 ## 13. Environment files
 

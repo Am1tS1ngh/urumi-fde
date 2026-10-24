@@ -8,7 +8,7 @@ items remain, and whether the local environment is running.
 | **As of** | 24 October 2026, about 11:00 IST |
 | **Deadline** | 26 October 2026, 11:59 PM IST (about 2.5 days left) |
 | **Build** | Complete. Every mandatory requirement is built and verified (70 of 70 checklist items). |
-| **Still owed** | Submission work: finish the demo run, record the video, commit and push, submit. |
+| **Still owed** | Submission work: finish the demo run, record the video, get [PR #1](https://github.com/nikhiljangid120/urumi-fde/pull/1) merged, submit. |
 | **Bonus** | Optional. Not started, apart from some security hardening that is already in place. |
 | **Environment** | Running: Docker, the k3d cluster and every pod are up (see [section 4](#4-live-environment)). |
 | **Related** | [Status and setup](STATUS.md) · [Scenarios and run log](SCENARIO.md) · [Checklist](CHECKLIST.md) |
@@ -63,8 +63,8 @@ Full detail: [CHECKLIST.md](CHECKLIST.md) and [STATUS.md §5](STATUS.md#5-requir
 | 1 | Two-user demo run, scenarios 1–10 | In progress: 1–4 passed ([run log](SCENARIO.md#10-run-log)) |
 | 2 | Revoke the admin's "sample" key (shown in a screenshot) | To do |
 | 3 | Record the demo video | To do |
-| 4 | Commit `STATUS.md`, `SCENARIO.md`, `COMPLETION.md` and `CHECKLIST.md` | To do; needs author details |
-| 5 | Push `core-build` to GitHub (branch for a PR, or merge into `main`) | To do; needs your choice. GitHub has only `fb4091d`. |
+| 4 | Commit the docs (STATUS, SCENARIO, COMPLETION, checklist, bootcamp) | Done |
+| 5 | Push and open a pull request into `main` | Done: [PR #1](https://github.com/nikhiljangid120/urumi-fde/pull/1). The owner, `nikhiljangid120`, needs to merge it. |
 | 6 | Make sure the repo and video are accessible, then submit the form | To do |
 | 7 | Rotate the Groq key | To do, after recording |
 
