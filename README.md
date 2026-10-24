@@ -53,7 +53,7 @@ Then open:
   bearer token. Node on Windows cannot resolve `*.localhost`, so clients use the IP.
 
 Chat needs an OpenAI-compatible API with tool calling. The default is Groq with
-`llama-3.3-70b-versatile`. Add a key, then restart the gateway so it reads the
+`openai/gpt-oss-120b`. Add a key, then restart the gateway so it reads the
 updated Secret:
 
 ```powershell
