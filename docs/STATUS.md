@@ -43,6 +43,7 @@
 | Understand how it works and why | [DESIGN.md](DESIGN.md) | Request flow, tool naming, failure handling, upgrade and rollback |
 | Understand the security reasoning | [THREAT_MODEL.md](THREAT_MODEL.md) | Trust boundaries, risks and mitigations |
 | Get a quick overview, develop without Kubernetes, run tests | [README](../README.md) | The repository's front page |
+| Learn the gateway, dashboard and Kubernetes build phase by phase, with interview prep | [bootcamp/](bootcamp/00_START_HERE.md) (start at `00_START_HERE.md`, then Parts 1–4) | Bootcamp written 23 Oct. Part 5 (demo and interview) is listed but not written; the code is the final word where they differ. |
 | Learn how it was built, step by step | [course/](course/), [five-tools-guide.md](five-tools-guide.md), [store-foundation.md](store-foundation.md), [local-kubernetes.md](local-kubernetes.md), [live-store-mcp.md](live-store-mcp.md) | Background from 21–22 Oct; parts are out of date |
 
 **Suggested reading paths**
@@ -317,7 +318,7 @@ The dashboard was checked with screenshots, and its actions through the API.
 | `mcp-servers/` | Utilities server and the pinned reference server |
 | `charts/store/`, `charts/platform/` | Helm charts |
 | `scripts/` | Cluster, secrets and deployment scripts |
-| `docs/` | Completion report, status, demo scenarios, checklist, design, threat model and background guides (see [Which document to use](#which-document-to-use)) |
+| `docs/` | Completion report, status, demo scenarios, checklist, design, threat model, the bootcamp (`docs/bootcamp/`) and background guides (see [Which document to use](#which-document-to-use)) |
 
 ## 9. Known limitations
 
@@ -427,8 +428,8 @@ No code changed in this update.
 | `af9e244` | Let the adapter run inside the cluster |
 | `fb4091d` | Starting point: WooCommerce adapter and store chart |
 
-**Not yet committed:** `docs/STATUS.md`, `docs/SCENARIO.md`, `docs/COMPLETION.md` (all new) and `docs/CHECKLIST.md` (ticked items).
-**Not yet pushed:** every commit above except `fb4091d`.
+**Committed:** `d00eb84` adds STATUS, SCENARIO and COMPLETION and ticks the checklist; the next commit adds `docs/bootcamp/`.
+**Pushing:** `core-build` goes up for a pull request into `main`.
 
 ## 13. Environment files
 
